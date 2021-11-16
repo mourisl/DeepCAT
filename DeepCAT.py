@@ -551,6 +551,7 @@ def PredictCancer(f,dir_prefix):
             continue
         CDR3s.append(cc)
     CDR3sDict={}
+    CDR3rawDict = {} # raw sequence
     for cc in CDR3s:
         if len(pat.findall(cc))>0:
             continue
@@ -558,10 +559,13 @@ def PredictCancer(f,dir_prefix):
         ccF=AAindexEncoding(cc)
         if ll not in CDR3sDict:
             CDR3sDict[ll]=[ccF]
+            CDR3rawDict[ll] = [cc]
         else:
             CDR3sDict[ll].append(ccF)
+            CDR3rawDict[ll].append(cc)
     ScoreDict={}
     XX=[]
+    outputCDR3 = []
     for LL in range(12,17):
         CDR3_classifier=tf.estimator.Estimator(model_fn=ModelDict[LL],model_dir=dir_prefix+'/CDR3_classifier_PCA_LL'+str(LL)+'_L2_k2f8d10_tCi01'+'/')
         if LL in CDR3sDict:
@@ -569,12 +573,16 @@ def PredictCancer(f,dir_prefix):
                 x={'x':np.array(CDR3sDict[LL])},        
                 num_epochs=1,
                 shuffle=False)
+            outputCDR3 += CDR3rawDict[LL]
         else:
             continue
         eval_results=CDR3_classifier.predict(input_fn=eval_input_fn)
         xx=[]
+        k = 0
         for x in eval_results:
+            print( CDR3rawDict[LL][k], x['probabilities'][1])
             xx.append(x['probabilities'][1])
+            k += 1
         ScoreDict[LL]=xx
         XX+=xx
     mms=[]
@@ -598,28 +606,7 @@ def PredictBatch(DIR, dir_prefix=curPath+'/tmp/'):
     return ffs, mmsList, SDList, XXList
     
 if len(sys.argv) > 1:   
- DIR=sys.argv[1]
- DIR1=os.path.basename(DIR)
- ffs=os.listdir(DIR)
- dir_prefix=sys.argv[2]
- CC=[]
- ffss=[]
- for ff in ffs:
-   if ff == 'README.md':
-     continue
-   else: 
-     score,XX1 = PredictCancer(DIR+'/'+ff, dir_prefix+'/tmp/')
-     CC.append(score)
-     ffss.append(ff)  
- CC=np.array(CC)
- ffss=np.array(ffss)
- if sys.argv[3] == '-t':
-   with open('Cancer_score_'+DIR1+'.txt', 'w') as f:
-      writer = csv.writer(f, delimiter='\t')
-      writer.writerows(zip(ffss,CC))  
- elif sys.argv[3] == '-r':       
-   with open('Cancer_score.txt', 'w') as f:
-      writer = csv.writer(f, delimiter='\t')
-      writer.writerows(zip(ffss,CC))  
-  
-  
+  # usage: a.py cdr3_list model_path_prefix
+  PredictCancer(sys.argv[1], sys.argv[2]) ; 
+else:
+  print("")
